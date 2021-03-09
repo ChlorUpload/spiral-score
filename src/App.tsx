@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { Button, Space, Radio, Typography, Switch, Spin } from "antd";
+import { Button, Space, Radio, Typography, Switch, Spin, Result } from "antd";
 import React, { useEffect, useState } from "react";
 import Record from "./utils/Record";
 import Wave from "./components/Wave";
@@ -33,26 +33,44 @@ type RadioDomain = "wave" | "frequency" | "spiral";
 function App() {
   const [radioValue, setRadioValue] = useState<RadioDomain>("wave");
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [record, setRecord] = useState<Record | null>(null);
 
   useEffect(() => {
-    new Record((strm) => {
-      setStream(strm);
-    });
-  }, []);
-
-  if (stream === null)
-    return (
-      <Layout>
-        <Main>
-          <Spin size="large"></Spin>
-        </Main>
-      </Layout>
+    setRecord(
+      new Record((strm) => {
+        setStream(strm);
+      })
     );
+  }, []);
 
   return (
     <Layout>
       <Controller>
         <Space size={30}>
+          <Button
+            type="primary"
+            danger={stream !== null}
+            onClick={() => {
+              if (record !== null) {
+                if (stream === null) {
+                  record.start();
+                } else {
+                  record.stop();
+                }
+                setStream(record.stream);
+              }
+            }}
+          >
+            {stream === null ? (
+              <Typography.Text style={{ color: "white" }}>
+                녹음 시작
+              </Typography.Text>
+            ) : (
+              <Typography.Text style={{ color: "white" }}>
+                녹음 중지
+              </Typography.Text>
+            )}
+          </Button>
           <Space size={4} direction="vertical">
             <Typography.Text style={{ color: "white" }}>
               데이터를 변환할 도메인을 선택하세요
@@ -77,17 +95,24 @@ function App() {
         </Space>
       </Controller>
       <Main>
-        {(() => {
-          switch (radioValue) {
-            case "wave":
-              return <Wave stream={stream}></Wave>;
-            case "frequency":
-              return <Frequency stream={stream}></Frequency>;
-            case "spiral":
-            default:
-              return <Spiral stream={stream}></Spiral>;
-          }
-        })()}
+        {stream === null ? (
+          <Result
+            title="MediaStream을 찾을 수 없습니다."
+            extra="화면 상단의 '녹음 시작' 버튼을 눌러 녹음을 시작해주세요."
+          ></Result>
+        ) : (
+          (() => {
+            switch (radioValue) {
+              case "wave":
+                return <Wave stream={stream}></Wave>;
+              case "frequency":
+                return <Frequency stream={stream}></Frequency>;
+              case "spiral":
+              default:
+                return <Spiral stream={stream}></Spiral>;
+            }
+          })()
+        )}
       </Main>
     </Layout>
   );

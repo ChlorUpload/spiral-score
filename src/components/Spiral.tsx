@@ -1,13 +1,52 @@
-import { createRef, RefObject, useEffect } from "react";
+import { Slider, Space, Typography } from "antd";
+import { createRef, RefObject, useEffect, useState } from "react";
+import DecimalStep from "./DecimalStep";
 
 type Props = {
   stream: MediaStream;
 };
 
-const RADIUS = 300;
+const RADIUS = 250;
+const PADDING = 50;
+let g_roc = 0;
+let g_ratio = 0;
+
+const ratioTocolor = (ratio: number) => {
+  var r = 0;
+  var g = 0;
+  var b = 0;
+  if (ratio < 0.5) {
+    r = 239;
+    g = Math.round(510 * ratio);
+    b = 80;
+  } else {
+    r = Math.round(510 - 510 * ratio);
+    g = 161;
+    b = 14;
+  }
+  var h = r * 0x10000 + g * 0x100 + b * 0x1;
+  return "#" + ("000000" + h.toString(16)).slice(-6);
+};
 
 export default function Spiral({ stream }: Props) {
   const ref = createRef<HTMLCanvasElement>();
+  const [roc, setRoc] = useState(0);
+  const [ratio, setRatio] = useState(0);
+
+  const changeRoc = (roc: number) => {
+    setRoc(roc);
+    g_roc = roc;
+  };
+
+  const changeRatio = (ratio: number) => {
+    setRatio(ratio);
+    g_ratio = ratio;
+  };
+
+  useEffect(() => {
+    g_roc = 0;
+    g_ratio = 0;
+  }, []);
 
   useEffect(() => {
     if (ref.current !== null) {
@@ -19,15 +58,28 @@ export default function Spiral({ stream }: Props) {
   }, [ref.current, stream]);
 
   return (
-    <canvas
-      ref={ref}
-      width={`${RADIUS * 2}px`}
-      height={`${RADIUS * 2}px`}
-    ></canvas>
+    <Space direction="vertical" size={20} align="center">
+      <Space size={10} align="center">
+        <Typography.Text>유리함수 {"<->"} 일차함수</Typography.Text>
+        <DecimalStep value={ratio} onChange={changeRatio}></DecimalStep>
+      </Space>
+      <Space size={10} align="center">
+        <Typography.Text>ROC</Typography.Text>
+        <DecimalStep value={roc} onChange={changeRoc}></DecimalStep>
+      </Space>
+      <canvas
+        ref={ref}
+        width={`${(RADIUS + PADDING) * 2}px`}
+        height={`${(RADIUS + PADDING) * 2}px`}
+      ></canvas>
+    </Space>
   );
 }
 
-function visualize(stream: MediaStream, canvasCtx: CanvasRenderingContext2D) {
+const visualize = (
+  stream: MediaStream,
+  canvasCtx: CanvasRenderingContext2D
+) => {
   const audioCtx = new AudioContext();
 
   const sampleRate = audioCtx.sampleRate;
@@ -44,9 +96,16 @@ function visualize(stream: MediaStream, canvasCtx: CanvasRenderingContext2D) {
 
   const fractionalPart = (num: number) => num - Math.floor(num);
   const rightToLeftCoord = (x: number, y: number) => ({
-    x: x + RADIUS,
-    y: RADIUS - y,
+    x: x + RADIUS + PADDING,
+    y: RADIUS + PADDING - y,
   });
+
+  const C2 = 65.4;
+  const C8 = 4186.0;
+
+  const rational = (f: number) => ((1 - g_roc) * (C2 / f) + g_roc) * RADIUS;
+  const linear = (f: number) =>
+    (((C2 / C8 - 1) * (f - C2)) / (C8 - C2) + 1) * RADIUS;
 
   draw();
 
@@ -55,36 +114,47 @@ function visualize(stream: MediaStream, canvasCtx: CanvasRenderingContext2D) {
 
     analyser.getByteFrequencyData(dataArray);
 
-    canvasCtx.fillStyle = "rgb(241, 219, 248)";
+    canvasCtx.fillStyle = ratioTocolor(0);
     canvasCtx.beginPath();
-    canvasCtx.ellipse(RADIUS, RADIUS, RADIUS, RADIUS, 0, 0, 2 * Math.PI);
+    canvasCtx.lineWidth = 1;
+    canvasCtx.ellipse(
+      RADIUS + PADDING,
+      RADIUS + PADDING,
+      RADIUS + PADDING,
+      RADIUS + PADDING,
+      0,
+      0,
+      2 * Math.PI
+    );
     canvasCtx.fill();
 
-    canvasCtx.lineWidth = 2;
-    canvasCtx.strokeStyle = "rgb(100, 46, 136)";
-    canvasCtx.beginPath();
-
     const f0 = sampleRate / fftSize;
-
-    const C2 = 65.4;
-    const C8 = 4186.0;
 
     const startIdx = Math.floor(C2 / f0);
     const endIdx = Math.ceil(C8 / f0);
 
+    canvasCtx.shadowBlur = 20;
+
     for (let i = startIdx; i <= endIdx; i++) {
-      let v = dataArray[i];
+      let v = dataArray[i] / 256;
       const f = f0 * i;
-      const d = (C2 * RADIUS) / f;
+
+      const d = rational(f) * (1 - g_ratio) + linear(f) * g_ratio;
       const arg = Math.PI / 2 - 2 * Math.PI * fractionalPart(Math.log2(f / C2));
 
       const point = rightToLeftCoord(d * Math.cos(arg), d * Math.sin(arg));
 
-      canvasCtx.fillStyle = `rgb(${v}, ${v}, ${v})`;
+      // draw circle in the left to the canvas
+
+      canvasCtx.fillStyle = ratioTocolor(v * v);
+      canvasCtx.shadowColor = ratioTocolor(v * v);
       canvasCtx.beginPath();
-      canvasCtx.ellipse(point.x, point.y, 6, 6, 0, 0, Math.PI * 2);
+      canvasCtx.arc(point.x, point.y, 5, 0, Math.PI * 2, true);
+      canvasCtx.closePath();
       canvasCtx.fill();
     }
+
+    canvasCtx.shadowBlur = 0;
 
     const alpha0 = Math.PI / 6;
     canvasCtx.lineWidth = 1;
@@ -105,4 +175,4 @@ function visualize(stream: MediaStream, canvasCtx: CanvasRenderingContext2D) {
       canvasCtx.stroke();
     }
   }
-}
+};

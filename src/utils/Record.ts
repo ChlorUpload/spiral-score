@@ -12,7 +12,9 @@ export default class Record {
 
   constructor(onStreamReady: (stream: MediaStream) => void) {
     this.onStreamReady = onStreamReady;
+  }
 
+  public start = () => {
     if (!navigator.mediaDevices.getUserMedia) {
       message.error("getUserMedia가 지원되지 않는 환경입니다.");
       return;
@@ -23,7 +25,14 @@ export default class Record {
         audio: true,
       })
       .then(this._onSuccess, this._onError);
-  }
+  };
+
+  public stop = () => {
+    this.stream?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    this.stream = null;
+  };
 
   private _onSuccess = (stream: MediaStream) => {
     this.stream = stream;
