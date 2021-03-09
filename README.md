@@ -1,3 +1,10 @@
+# Spiral Score
+
+"나선악보"는 2019년 DGIST(대구과학경북과학기술원)에서 진행된 UGRP 연구, "음악 속의 과학"에서 이기준 교수의 지도 하에 개발된 새로운 악보 시스템입니다. 이 프로젝트는 교수 및 연구자의 동의 하에 "나선악보"를 웹에서 구현한 프로젝트로, 디지털 신호 처리 세미나 자료로 사용하기 위해서 개발되었습니다.
+
+# Try it
+https://d1rp9xcjv7tof.cloudfront.net/
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
